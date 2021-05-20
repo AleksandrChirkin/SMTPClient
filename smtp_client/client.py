@@ -16,24 +16,25 @@ class SMTPClient:
         self.port = int(server_port[1])
         self.to = to
         self.login = login
-        modified_login = self.login.replace("@", ".")
         self.subject = subject
         self.directory = Path(directory)
-        self.do_verbose = verbose
-        if auth:
-            self.password = getpass.getpass()
+        self.verbose = verbose
         self.commands = []
-        self.commands = [f'EHLO {modified_login}\n',
-                         f'MAIL FROM: <{self.login}>\nrcpt to: '
+        self.commands = [f'EHLO {self.modify_login()}\n',
+                         f'MAIL FROM: <{self.login}>\nRCPT TO: '
                          f'<{self.to}>\nDATA\n']
         if auth:
+            password = getpass.getpass()
             base_login = base64.b64encode(self.login.encode('utf-8'))\
                 .decode('utf-8')
-            base_passwd = base64.b64encode(self.password.encode('utf-8'))\
+            base_passwd = base64.b64encode(password.encode('utf-8'))\
                 .decode('utf-8')
             self.commands.insert(1, 'auth login\n')
             self.commands.insert(2, f'{base_login}\n')
             self.commands.insert(3, f'{base_passwd}\n')
+
+    def modify_login(self) -> str:
+        return self.login.replace("@", ".")
 
     def create_letter(self) -> str:
         letter = Letter()
@@ -42,43 +43,41 @@ class SMTPClient:
                  for x in os.listdir(self.directory)
                  if x.endswith('.jpg')]
         for i in range(len(files)):
-            if i == len(files) - 1:
-                letter.set_content(files[i], True)
-            else:
-                letter.set_content(files[i])
+            letter.set_content(files[i], i == len(files) - 1)
         return letter.get_letter()
 
     def receive_message(self, sock: socket) -> None:
         all_msg = sock.recv(1024).decode('utf-8')
         msg_parts = all_msg.split('\n')[:-1]
-        last_code = msg_parts[-1][0:4]
+        last_code = msg_parts[-1][0:3]
+        last_msg = msg_parts[-1][4:]
         if last_code[0] == '5':
             raise SMTPError(all_msg)
-        if self.do_verbose:
+        if self.verbose:
+            if last_code == '334':
+                last_msg = base64.b64decode(f'{last_msg}==').decode('utf-8')
+                all_msg = f'{last_code} {last_msg}'
             print('<- ' + all_msg)
 
     def send_message(self, sock: socket, msg: str) -> None:
-        if self.do_verbose:
+        if self.verbose:
             print('-> ' + msg)
         sock.send(msg.encode())
 
     def run(self) -> None:
         with socket(AF_INET, SOCK_STREAM) as sock:
-            try:
-                sock.connect((self.server, self.port))
+            sock.connect((self.server, self.port))
+            self.receive_message(sock)
+            if self.ssl:
+                self.send_message(sock,
+                                  f'EHLO {self.modify_login()}\n')
                 self.receive_message(sock)
-                if self.ssl:
-                    self.send_message(sock,
-                                      f'EHLO {self.login.replace("@", ".")}\n')
+                self.send_message(sock, 'starttls\n')
+                self.receive_message(sock)
+                sock = ssl.wrap_socket(sock)
+            for command in self.commands:
+                self.send_message(sock, command)
+                self.receive_message(sock)
+                if 'DATA' in command:
+                    sock.send(self.create_letter().encode())
                     self.receive_message(sock)
-                    self.send_message(sock, 'starttls\n')
-                    self.receive_message(sock)
-                    sock = ssl.wrap_socket(sock)
-                for command in self.commands:
-                    self.send_message(sock, command)
-                    self.receive_message(sock)
-                    if 'DATA' in command:
-                        sock.send(self.create_letter().encode())
-                        self.receive_message(sock)
-            except SMTPError as e:
-                print(e)

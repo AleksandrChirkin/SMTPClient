@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
-from smtp_client import SMTPClient
+from smtp_client import SMTPClient, SMTPError
 from typing import Any, Dict
+import os
 
 
 def parse_args() -> Dict[str, Any]:
@@ -12,16 +13,20 @@ def parse_args() -> Dict[str, Any]:
     parser.add_argument('-t', '--to', help='Recipient address')
     parser.add_argument('-f', '--login', '--from', default='<>',
                         metavar='sender', help='Sender address')
-    parser.add_argument('--subject', default='Happy pictures',
+    parser.add_argument('--subject', default='Happy Pictures',
                         help='Subject of mail')
     parser.add_argument('--auth', action='store_true',
                         help='Request authentication')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Verbose mode')
-    parser.add_argument('-d', '--directory', default='.',
+    parser.add_argument('-d', '--directory', default=os.getcwd(),
                         help='Source of images')
     return parser.parse_args().__dict__
 
 
 if __name__ == '__main__':
-    SMTPClient(**parse_args()).run()
+    try:
+        SMTPClient(**parse_args()).run()
+    except SMTPError as e:
+        print(e)
+        exit(1)
