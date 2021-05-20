@@ -47,21 +47,21 @@ class SMTPClient:
         return letter.get_letter()
 
     def receive_message(self, sock: socket) -> None:
-        all_msg = sock.recv(1024).decode('utf-8')
-        msg_parts = all_msg.split('\n')[:-1]
+        msg = sock.recv(1024).decode('utf-8')
+        msg_parts = msg.split('\n')[:-1]
         last_code = msg_parts[-1][0:3]
         last_msg = msg_parts[-1][4:]
         if last_code[0] == '5':
-            raise SMTPError(all_msg)
+            raise SMTPError(msg)
         if self.verbose:
             if last_code == '334':
                 last_msg = base64.b64decode(f'{last_msg}==').decode('utf-8')
-                all_msg = f'{last_code} {last_msg}'
-            print('<- ' + all_msg)
+                msg = f'{last_code} {last_msg}'
+            print(f'<- {msg}')
 
     def send_message(self, sock: socket, msg: str) -> None:
         if self.verbose:
-            print('-> ' + msg)
+            print(f'-> {msg}')
         sock.send(msg.encode())
 
     def run(self) -> None:
