@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from smtp_client import SMTPClient, SMTPError
+from socket import gaierror
 from typing import Any, Dict
 import os
 
@@ -29,4 +30,10 @@ if __name__ == '__main__':
         SMTPClient(**parse_args()).run()
     except SMTPError as e:
         print(e)
+        exit(1)
+    except gaierror:
+        print('SMTP server not found! (DNS Error)')
+        exit(1)
+    except ConnectionError:
+        print('Server refuses connection')
         exit(1)
