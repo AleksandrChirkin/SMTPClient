@@ -37,3 +37,7 @@ if __name__ == '__main__':
     except ConnectionError:
         print('Server refuses connection')
         exit(1)
+    except KeyboardInterrupt:
+        print('Terminated\n')
+        exit()
+     
