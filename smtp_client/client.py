@@ -12,6 +12,9 @@ class SMTPClient:
                  subject: str, auth: bool, verbose: bool, directory: str):
         self.ssl = ssl
         server_port = server.split(':')
+        if len(server_port) != 2:
+            raise ValueError('Incorrect address '
+                             '(must be in "server:port" format)')
         self.server = server_port[0]
         self.port = int(server_port[1])
         self.to = to

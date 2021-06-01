@@ -28,7 +28,7 @@ def parse_args() -> Dict[str, Any]:
 if __name__ == '__main__':
     try:
         SMTPClient(**parse_args()).run()
-    except SMTPError as e:
+    except (SMTPError, ValueError) as e:
         print(e)
         exit(1)
     except gaierror:
